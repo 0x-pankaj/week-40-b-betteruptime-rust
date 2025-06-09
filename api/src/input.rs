@@ -13,7 +13,7 @@ pub struct Website {
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct UpdateWebsite {
     pub url: Option<String>,
     pub name: Option<String>,

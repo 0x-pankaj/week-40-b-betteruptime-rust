@@ -59,14 +59,40 @@ async fn create_website(
 #[handler]
 async fn update_website(
     store: Data<&Store>,
+    redis: Data<&RedisStore>,
     id: Path<String>,
     input: Json<input::UpdateWebsite>,
-) -> Json<Option<Website>> {
+) -> Result<Json<Option<Website>>, poem::Error> {
+    //redis things
+    let redis_entry = redis_lib::WebsiteStreamEntry {
+        id: id.clone().to_string(),
+        url: input.url.clone().unwrap_or_default(),
+        name: input.name.clone(),
+    };
+    // // delete website from steam
+    redis.delete_website(&id).await.map_err(|e| {
+        poem::Error::from_string(
+            format!("Redis error: {}", e),
+            poem::http::StatusCode::INTERNAL_SERVER_ERROR,
+        )
+    })?;
+    // adding again website to the stream
+    redis
+        .add_website_to_stream(redis_entry)
+        .await
+        .map_err(|e| {
+            poem::Error::from_string(
+                format!("Redis error: {}", e),
+                poem::http::StatusCode::INTERNAL_SERVER_ERROR,
+            )
+        })?;
+
     let website = store
         .update_website(&id, input.url.as_deref(), input.name.as_deref())
         .await
         .ok();
-    Json(website)
+
+    Ok(Json(website))
 }
 
 #[handler]
@@ -76,7 +102,7 @@ async fn delete_website(
     id: Path<String>,
 ) -> Result<String, poem::Error> {
     redis
-        .trim_website_stream(0)
+        .delete_website(&id)
         .await
         .map_err(|e| poem::error::InternalServerError(e))?;
     store

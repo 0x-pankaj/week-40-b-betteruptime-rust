@@ -94,6 +94,12 @@ impl RedisStore {
         Ok(ack_count)
     }
 
+    pub async fn delete_website(&self, id: &str) -> Result<i32, redis::RedisError> {
+        let mut conn = self.client.get_multiplexed_async_connection().await?;
+        let deleted: i32 = conn.xdel("website_stream", &[id]).await?;
+        Ok(deleted)
+    }
+
     pub async fn add_notification(
         &self,
         notification: NotificationEntry,
